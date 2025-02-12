@@ -134,3 +134,7 @@ dmypy.json
 
 # VS Code files
 .vscode/
+
+# Proprietary files
+Prairie View 5.8/Utilities/*
+!Prairie View 5.8/Utilities/.gitkeep
