@@ -1,37 +1,38 @@
-# Builds Bruker ripping image.
-
-# This docker-wine image is about 2 GB, mostly from:
-# - 0.5 GB from Ubuntu packages
-# - 1.5 GB from wine install
+# Use a base image with Wine
 FROM scottyhardy/docker-wine:stable-5.0.2-nordp
 
-LABEL maintainer="Chris Roat <croat@stanford.edu>"
+# Wine setup
+ENV WINEARCH=win32
+ENV WINEPREFIX=/home/wineuser/.wine
+RUN /usr/bin/entrypoint xvfb-run wineboot --init && \
+    /usr/bin/entrypoint xvfb-run winetricks -q vcrun2015
 
-# The entrypoint wrapper runs the wine setup as wineuser.
-# The xvfb-run wrapper redirects all displays to a virtual (unseen) display.
-# This adds about 1.6 GB to the image size.
-RUN /usr/bin/entrypoint xvfb-run winetricks -q vcrun2015
-
+# Install Miniconda and Mamba
 ENV PATH /opt/conda/bin:$PATH
-
-# Conda install is 250 MB
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh && \
-    /opt/conda/bin/conda clean -tipsy && \
+    /opt/conda/bin/conda clean --all -f -y && \
     ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
     echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate base" >> ~/.bashrc
+    echo "conda activate base" >> ~/.bashrc && \
+    /opt/conda/bin/conda install -n base -c conda-forge mamba -y
 
-# Environment is ~700 MB
-COPY environment.yml .
-RUN conda env update --quiet --name base --file environment.yml \
-    && conda clean --all -f -y \
-    && rm environment.yml
+# Copy `environment.yml` first to take advantage of Docker's cache
+COPY environment.yml /tmp/environment.yml
+# Install Conda dependencies first
+RUN /opt/conda/bin/mamba env update --name base --file /tmp/environment.yml \
+    && rm /tmp/environment.yml \
+    && /opt/conda/bin/mamba clean --all -f -y
 
+# Install Pip packages separately
+RUN /opt/conda/bin/pip install \
+    pyqt5 pyqt5.sip h5py natsort lxml rastermap tifffile scanimage-tiff-reader \
+    pyqtgraph importlib-metadata paramiko pynwb sbxreader suite2p click-pathlib
+# Copy only the execution script (without affecting the environment cache)
 COPY runscript.sh /apps/runscript.sh
 CMD /apps/runscript.sh
 
-# Copy code last to avoid busting the cache.
+# Copy the code afterward to avoid invalidating the dependency cache
 COPY . /apps/two-photon/
 RUN pip install /apps/two-photon

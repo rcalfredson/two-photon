@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import time
-import xml.etree.ElementTree as ET
+from lxml import etree
 
 import click
 
@@ -169,8 +169,12 @@ def determine_ripper(raw_path):
 
     # TODO: Make this work when running from git clone, or when package is installed.
     rippers_path = pathlib.Path(__file__).parent.parent
+    env_file_path = raw_path / env_files[0]
 
-    tree = ET.parse(str(raw_path / env_files[0]))
+    parser = etree.XMLParser(recover=True, encoding="utf-8")
+    with open(env_file_path, "r", encoding="utf-8") as f:
+        tree = etree.parse(f, parser)
+
     root = tree.getroot()
     version = root.attrib["version"]
 

@@ -2,34 +2,29 @@
 #
 # Command-line script to execute ripping using the Docker container.
 #
-# Many flags are required for the internal /usr/bin/entrypoint script to setup permissions and turn
-# off rendering of the app's windows.
-#
-# TODO: For the common case of batch running, investigate eliminating entrypoint script 
-# and many of these variables.
 
 set -e
 
-if [ "$#" -ne 2 ]; then
-    echo "Requires two arguments: name of the Docker image, and path to acquisition top-level directory"
-    exit -1
+if [ "$#" -ne 3 ]; then
+    echo "Requires three arguments: name of the Docker image, base path, and acquisition sub-directory"
+    exit 1
 fi
 
-if [ ! -d "${2}" ]; then
-    echo "Directory missing: ${2}"
-    exit -2
+BASE_PATH="${2}"
+ACQUISITION_SUBDIR="${3}"
+
+if [ ! -d "${BASE_PATH}" ]; then
+    echo "Base directory missing: ${BASE_PATH}"
+    exit 2
 fi
 
-# Flags determined by examining docker-wine with:
-# --as-me
-# --workdir
-# --xvfb
-# --name 
-# https://github.com/scottyhardy/docker-wine/blob/master/docker-wine
+# Pass both base path and acquisition subdirectory separately
 docker run \
        -it \
        --rm \
-       --volume=${2}:/data \
+       --volume=${BASE_PATH}:/data \
+       --env=BASE_PATH="/data" \
+       --env=ACQUISITION_DIR="${ACQUISITION_SUBDIR}" \
        --env=USER_NAME=${USER} \
        --env=USER_UID=$(id -u ${USER}) \
        --env=USER_GID=$(id -g ${USER}) \
